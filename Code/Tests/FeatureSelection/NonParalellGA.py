@@ -24,6 +24,9 @@ y_test = Test.iloc[:,700:].to_numpy()
 
 
 
+#-----------------------------------------------------------------------
+#CREATING THE NETWORK OBJECT 
+
 
 #-----------------------------------------------------------------------
 #SETTING UP THE EVOLUTIONARY ALGORITHM
@@ -69,9 +72,11 @@ def decodeChromosome(FeatureVector):
 
   IndNonElected = []
   # traverse the feature vector anotating the indexes not elected
-  for i in range(len(FeatureVector) - 1):
+  for i in range(len(FeatureVector)):
     if FeatureVector[i] == 0:
       IndNonElected.append(i)
+  print(len(IndNonElected))
+
 
   # drop the features not selected in the vector from both train and thest dataset
   NewTrain.drop( NewTrain.columns[IndNonElected] ,axis = 1, inplace = True)
@@ -82,21 +87,7 @@ def decodeChromosome(FeatureVector):
 
 
 
-    
-  
-  
-
-
-
-
-
-
-
-
-
-
-
-
+ 
 #-----------------------------------------------------------------------
 #MAIN METHOD
 
@@ -105,7 +96,10 @@ def main():
   ind = toolbox.Individual()
   print(ind)
   x_train, x_test, = decodeChromosome(ind)
-  print(x_test.shape)
+  print(x_test)
+
+
+  print(Test)
 
 if __name__ == "__main__":
   main()
