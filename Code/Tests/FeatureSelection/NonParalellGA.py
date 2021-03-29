@@ -15,6 +15,18 @@ from deap import base, tools, creator
 
 import pandas as pd
 
+from tqdm import tqdm 
+
+#----------------------------------------------------------------------
+#CHECKING FOR GPU AVAILABILITY
+
+if torch.cuda.is_available():
+  device = torch.device("cuda:0")
+  print("Working on the GPU")
+else:
+  device = torch.device("cpu")
+  print("Working on the CPU")
+
 #-----------------------------------------------------------------------
 #IMPORTING DATASETS
 
@@ -27,9 +39,22 @@ Train.drop(Train.columns[0],axis = 1, inplace = True)
 Test.drop(Test.columns[0],axis = 1, inplace = True)
 
 #Convert the y dataframes to numpy arrays in order to use them as input for the model, the x dataframes are created when translating the feature vector in the function decodeChromosome() 
-y_train = torch.as_tensor(Train.iloc[:,700:].to_numpy())
-y_test = torch.as_tensor(Test.iloc[:,700:].to_numpy())
+y_train2 = Train.iloc[:,700:].to_numpy()
+y_test2 = Test.iloc[:,700:].to_numpy()
 
+#The arrays above need to be converted from 2 classes to 1 to match the output of the network
+y_train = []
+y_test = []
+
+for y in y_train2:
+  y_train.append([np.where(y==1)[0][0]])  
+  
+for y in y_test2:
+  y_test.append([np.where(y==1)[0][0]])  
+
+#Convert to torch tensors
+y_train = torch.as_tensor(y_train, dtype = torch.float32, device = device)
+y_test = torch.as_tensor(y_test, dtype = torch.float32, device = device)
 
 
 
@@ -49,7 +74,7 @@ class Network(nn.Module):
     self.hidden3 = nn.Linear(80, 60)
     self.hidden4 = nn.Linear(60, 50)
     self.hidden5 = nn.Linear(50, 30)
-    self.out = nn.Linear(30,2)
+    self.out = nn.Linear(30,1)
 
 
   # This function specifies the flow of information inside the network in each forward pass 
@@ -59,13 +84,9 @@ class Network(nn.Module):
     x = F.relu(self.hidden3(x))
     x = F.relu(self.hidden4(x))
     x = F.relu(self.hidden5(x))
-    output = F.softmax(self.out(x))
-
-
-
-
-
-
+    output = torch.sigmoid(self.out(x))
+    
+    return output
 
 
 #-----------------------------------------------------------------------
@@ -88,13 +109,10 @@ toolbox = base.Toolbox()
 
 toolbox.register("random", random.randint, 0,1)
 toolbox.register("Individual", tools.initRepeat, creator.Individual, toolbox.random, 700)
-toolbox.register("Population", tools.initRepeat, list, creator.Individual, populationsize)
+toolbox.register("Population", tools.initRepeat, list, toolbox.Individual, populationsize)
 toolbox.register("Selection", tools.selTournament, tournsize = 2, fit_attr = "fitness")
 toolbox.register("Crossover", tools.cxUniform, indpb = 0.5)
 toolbox.register("Mutate", tools.mutFlipBit, indpb = 0.05)
-
-
-
 
 
 
@@ -104,7 +122,7 @@ toolbox.register("Mutate", tools.mutFlipBit, indpb = 0.05)
 
 #This helper function decodes a chromosome (feature vector) and returns the elected columns of the dataframes converted to tensors (for training/testing purposes)
 
-def decodeChromosome(FeatureVector):
+def decodeChromosome(FeatureVector, device):
   # create a copy of the training/testing dataframes  
   NewTrain = Train.iloc[:,:700].copy()
   NewTest = Test.iloc[:,:700].copy()
@@ -121,8 +139,8 @@ def decodeChromosome(FeatureVector):
   NewTrain.drop( NewTrain.columns[IndNonElected] ,axis = 1, inplace = True)
   NewTest.drop( NewTest.columns[IndNonElected], axis = 1, inplace = True)
 
-  # return both train and test datasets converted to torch tensors
-  return torch.as_tensor(NewTrain.to_numpy()), torch.as_tensor(NewTest.to_numpy())
+  # return both train and test datasets converted to torch tensors (stored in the GPU if possible)
+  return torch.as_tensor(NewTrain.to_numpy(dtype="float32"), device = device), torch.as_tensor(NewTest.to_numpy(dtype = "float32"), device = device)
 
 
 #This helper function takes an individual (feature vector of 1s and 0s) and counts the number of 1s inside (just for checking purposes)
@@ -143,16 +161,38 @@ def countOnes(individual):
 
 def main():
   
-  ind = toolbox.Individual()
-  print(countOnes(ind))
-  x_train, x_test, = decodeChromosome(ind)
-  print(x_train.shape[1])
+  # First, the population is created
+  population = toolbox.Population()
   
-  print(Test)
+  # The loss function is also initialised
+  lossFunc = nn.BCELoss()
 
-  net = Network(x_train.shape[1])
-  print(net)
+  # Now, a list is created to keep track of the fitness of the best individual in each generation
+  BestFitnesses = []
 
+  
+  # The first population created now can be evaluated
+  for ind in population:
+    x_train, x_test = decodeChromosome(ind, device)
+    # The network object is created as well as the optimizator that will help it learn
+    net = Network(x_train.shape[1]).to(device)
+    optimizer = torch.optim.Adam(net.parameters(), lr = 0.02) 
+    print(type(x_train)) 
+    # The network gets trained on the features selected for 200 iterations
+    for i in range(200):
+      optimizer.zero_grad()
+      output = net(x_train)
+      print(output)
+      print(y_train)
+      loss = lossFunc(output, y_train)
+      loss.backward()
+      
+      optimizer.step()
+      
+    #Now, the model gets evaluated on the test dataset, and the inverse of its loss gets assigned as the individual's fitness 
+    fitness = (1/lossFunc(net(x_test),y_test)) 
+    ind.fitness.values = (fitness,)
+    print(fitness)
 
 
 
