@@ -1,10 +1,12 @@
 #!usr/bin/python3 
 
-#This is a test implementation of the Genetic algorithm that will perform the feature selection. In this implementation, only the training of the models will be performed in the GPU, the GA itself won't be parallel as that will be implemented based on this verion.
+#This is the genetic algorithm that will perform the feature selection, as presented in the report.
 
 import numpy as np 
 
 import random
+
+import matplotlib.pyplot as plt
 
 import torch 
 import torch.nn as nn
@@ -94,7 +96,7 @@ class Network(nn.Module):
 
 #Initialising the hyperparameters for the evolutionary algorithm 
 populationsize = 100 # Population size
-ngenerations = 20 # Number of generations
+ngenerations = 60 # Number of generations
 crossprob = 0.7 # Crossover probability 
 mutprob = 0.80 # Mutation probability
 
@@ -155,6 +157,32 @@ def countOnes(individual):
 
 
 
+#This helper function works almost the same way as the "decodeChromosome()" function, but it will be used to return the elected features as a dataframe
+
+def returnDataframe(FeatureVector):
+  # create a copy of the training/testing dataframes  
+  NewTrain = Train.iloc[:,:700].copy()
+  NewTest = Test.iloc[:,:700].copy()
+  
+
+  IndNonElected = []
+  # traverse the feature vector anotating the indexes not elected
+  for i in range(len(FeatureVector)):
+    if FeatureVector[i] == 0:
+      IndNonElected.append(i)
+
+
+  # drop the features not selected in the vector from both train and thest dataset
+  NewTrain.drop( NewTrain.columns[IndNonElected] ,axis = 1, inplace = True)
+  NewTest.drop( NewTest.columns[IndNonElected], axis = 1, inplace = True)
+
+  # return both train and test datasets converted to torch tensors (stored in the GPU if possible)
+  return NewTrain, NewTest
+
+
+
+
+
 
 #-----------------------------------------------------------------------
 #MAIN METHOD
@@ -163,41 +191,150 @@ def main():
   
   # First, the population is created
   population = toolbox.Population()
-  
-  # The loss function is also initialised
-  lossFunc = nn.BCELoss()
 
   # Now, a list is created to keep track of the fitness of the best individual in each generation
   BestFitnesses = []
 
-  
+  currentInd = 0 
   # The first population created now can be evaluated
   for ind in population:
+    currentInd = currentInd +1
+
+    if currentInd % 5 == 0:
+      print("Working on individual " + str(currentInd))
+      torch.cuda.empty_cache()
+
+
     x_train, x_test = decodeChromosome(ind, device)
+
     # The network object is created as well as the optimizator that will help it learn
     net = Network(x_train.shape[1]).to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr = 0.02) 
-    print(type(x_train)) 
+  
+    # The loss function is also initialised
+    lossFunc = nn.BCELoss()
+
     # The network gets trained on the features selected for 200 iterations
     for i in range(200):
       optimizer.zero_grad()
       output = net(x_train)
-      print(output)
-      print(y_train)
       loss = lossFunc(output, y_train)
       loss.backward()
       
       optimizer.step()
       
     #Now, the model gets evaluated on the test dataset, and the inverse of its loss gets assigned as the individual's fitness 
-    fitness = (1/lossFunc(net(x_test),y_test)) 
+    fitness = (1/lossFunc(net(x_test),y_test)).item() 
     ind.fitness.values = (fitness,)
-    print(fitness)
+    
+    del net 
+    del optimizer
+    del x_train
+    del x_test
+    del lossFunc
 
 
+  
+  print("-"*30)
+  print("Starting the evolutionary loop")
+  # The evolutionary loop starts now
+  for g in tqdm(range(ngenerations)):
+  
+    # Select the next generation of individuals
+    offspring = toolbox.Selection(population, len(population))
+
+    # Clone the offspring to make sure we are working with a clean copy 
+    offspring = list(map(toolbox.clone,offspring))
+
+    print("performing the crossover")
+    # Perform the crossover
+    for child1, child2 in zip(offspring[::2],offspring[1::2]):
+      if random.random() < crossprob:
+        toolbox.Crossover(child1,child2)
+        del child1.fitness.values
+        del child2.fitness.values
+
+
+    print("performing the mutation")
+    # Perform the mutation 
+    for mutant in offspring:
+      if random.random() < mutprob:
+        toolbox.Mutate(mutant)
+        del mutant.fitness.values
+
+    
+    print("performing the evaluation")
+    currentInd = 0 
+    # Evaluate the new population
+    for ind in offspring:
+      
+      currentInd = currentInd +1
+
+      if currentInd % 5 == 0:
+        print("Working on individual " + str(currentInd))
+        torch.cuda.empty_cache()
+
+      x_train, x_test = decodeChromosome(ind, device) 
+      # The network object is created as well as the optimizator that will help it learn
+      net = Network(x_train.shape[1]).to(device)
+      optimizer = torch.optim.Adam(net.parameters(), lr = 0.02) 
+      # The loss function is also initialised
+      lossFunc = nn.BCELoss()
+
+      # The network gets trained on the features selected for 200 iterations
+      for i in range(200):
+        optimizer.zero_grad()
+        output = net(x_train)
+        loss = lossFunc(output, y_train)
+        loss.backward()
+      
+        optimizer.step()
+      
+      #Now, the model gets evaluated on the test dataset, and the inverse of its loss gets assigned as the individual's fitness 
+      fitness = (1/lossFunc(net(x_test),y_test)).item() 
+      ind.fitness.values = (fitness,)
+      
+      del net
+      del optimizer
+      del x_train
+      del x_test
+      del lossFunc
+       
+    # Now the offspring population becomes the parent population 
+    population[:] = offspring
+
+    
+
+
+    # In order to achieve the best combination of features, we need to keep track of the best individual across all populations
+
+    # Fist get the best individual of the current generation
+    BestOfGeneration = tools.selBest(population,1)[0]
+    # Set it as the global best in the first generation
+    if g == 0: 
+      currentBest = BestOfGeneration 
+    else:
+      # For the rest of generations, compare the local best with the global best
+      if BestOfGeneration.fitness.values > currentBest.fitness.values:
+        currentBest = BestOfGeneration 
+
+    BestFitnesses.append(BestOfGeneration.fitness.values)
+
+    print("Best fitness of current generation: " + str(BestOfGeneration.fitness.values))
+    
+
+  print("-"*30)
+  print("Evolution complete")
+  
+  # Save the best combination of features into a new txt file 
+  FinalTrain, FinalTest = returnDataframe(currentBest)
+  FinalTrain.to_csv(r'FinalTrainDataset.csv')
+  FinalTest.to_csv(r'FinalTestDataset.csv')
+  
+  # Plot the best fitnesses accross generations
+  plt.title("Best fitnesses across generations")
+  plt.plot(BestFitnesses)
+  plt.show()
 
 if __name__ == "__main__":
   main()
-
-  
-
