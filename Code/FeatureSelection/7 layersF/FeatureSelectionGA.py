@@ -76,7 +76,9 @@ class Network(nn.Module):
     self.hidden3 = nn.Linear(80, 60)
     self.hidden4 = nn.Linear(60, 50)
     self.hidden5 = nn.Linear(50, 30)
-    self.out = nn.Linear(30,1)
+    self.hidden6 = nn.Linear(30, 25)
+    self.hidden7 = nn.Linear(25, 20)
+    self.out = nn.Linear(20,1)
 
 
   # This function specifies the flow of information inside the network in each forward pass 
@@ -86,6 +88,8 @@ class Network(nn.Module):
     x = F.relu(self.hidden3(x))
     x = F.relu(self.hidden4(x))
     x = F.relu(self.hidden5(x))
+    x = F.relu(self.hidden6(x))
+    x = F.relu(self.hidden7(x))
     output = torch.sigmoid(self.out(x))
     
     return output
@@ -96,11 +100,11 @@ class Network(nn.Module):
 
 #Initialising the hyperparameters for the evolutionary algorithm 
 populationsize = 100 # Population size
-ngenerations = 60 # Number of generations
+ngenerations = 500 # Number of generations
 crossprob = 0.7 # Crossover probability 
-mutprob = 0.80 # Mutation probability
-
-
+mutprob = 0.1 # Mutation probability
+flipProb = 0.001 # Probability of a bit being flipped
+nElitists = 1 # Number of elite individuals selected
 
 #First we create the fitness atribute and the individual class 
 creator.create("Fitness", base.Fitness, weights = (1.0,))
@@ -113,8 +117,8 @@ toolbox.register("random", random.randint, 0,1)
 toolbox.register("Individual", tools.initRepeat, creator.Individual, toolbox.random, 700)
 toolbox.register("Population", tools.initRepeat, list, toolbox.Individual, populationsize)
 toolbox.register("Selection", tools.selTournament, tournsize = 2, fit_attr = "fitness")
-toolbox.register("Crossover", tools.cxUniform, indpb = 0.5)
-toolbox.register("Mutate", tools.mutFlipBit, indpb = 0.05)
+toolbox.register("Crossover", tools.cxTwoPoint)
+toolbox.register("Mutate", tools.mutFlipBit, indpb = flipProb)
 
 
 
@@ -241,7 +245,7 @@ def main():
   for g in tqdm(range(ngenerations)):
   
     # Select the next generation of individuals
-    offspring = toolbox.Selection(population, len(population))
+    offspring = tools.selBest(population,nElitists) + toolbox.Selection(population, len(population) - nElitists)
 
     # Clone the offspring to make sure we are working with a clean copy 
     offspring = list(map(toolbox.clone,offspring))
@@ -315,12 +319,12 @@ def main():
       currentBest = BestOfGeneration 
     else:
       # For the rest of generations, compare the local best with the global best
-      if BestOfGeneration.fitness.values > currentBest.fitness.values:
+      if BestOfGeneration.fitness.values[0] > currentBest.fitness.values[0]:
         currentBest = BestOfGeneration 
 
-    BestFitnesses.append(BestOfGeneration.fitness.values)
+    BestFitnesses.append(BestOfGeneration.fitness.values[0])
 
-    print("Best fitness of current generation: " + str(BestOfGeneration.fitness.values))
+    print("Best fitness of current generation: " + str(BestOfGeneration.fitness.values[0]))
     
 
   print("-"*30)
@@ -331,10 +335,20 @@ def main():
   FinalTrain.to_csv(r'FinalTrainDataset.csv')
   FinalTest.to_csv(r'FinalTestDataset.csv')
   
+  # Print the best fitnesses accross generations
+  print("Best fitnesses accross generations")
+  print(BestFitnesses)
+
+  #Print best fitness of all 
+  print("Best fitness")
+  print(currentBest)
+
   # Plot the best fitnesses accross generations
   plt.title("Best fitnesses across generations")
   plt.plot(BestFitnesses)
-  plt.show()
+  plt.xlabel("Generations")
+  plt.ylabel("Best fitness")
+  plt.savefig('BestFitnesses.png')
 
 if __name__ == "__main__":
   main()

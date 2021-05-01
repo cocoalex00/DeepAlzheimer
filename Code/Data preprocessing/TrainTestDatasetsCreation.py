@@ -16,7 +16,7 @@ MultiOmicsDataset.drop(MultiOmicsDataset.columns[0],axis = 1, inplace = True)
 MultiOmicsDataset = MultiOmicsDataset.sample(frac = 1)
 
 
-#Separate the dataframe into train and test data, 75% goes to training and the 25%left goes to testing 
+#Separate the dataframe into train and test data, 75% goes to training and the 25% left goes to testing 
 
 Train = MultiOmicsDataset.iloc[0:37473,:]
 Test = MultiOmicsDataset.iloc[37473:,:]
