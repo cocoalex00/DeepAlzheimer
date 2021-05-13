@@ -1,12 +1,12 @@
 #                                                    
-# Example Job for HTCondor
+#
 #
 ####################
 
 # -----------------------------------
 # Executable and its arguments
 executable    = StartScript.sh 
-arguments     = $ENV(PWD)/TestDataset.csv $ENV(PWD)/TrainDataset.csv $ENV(PWD)/FinalTestDataset.csv $ENV(PWD)/FinalTrainDataset.csv $ENV(PWD)/BestFitnesses.png $ENV(PWD)/FeatureSelectionGA.py
+arguments     = $ENV(PWD)/MultiOmicsTrain.csv $ENV(PWD)/MultiOmicsTrain.csv $ENV(PWD)/FinalTestDataset.csv $ENV(PWD)/FinalTrainDataset.csv $ENV(PWD)/BestFitnesses.png $ENV(PWD)/FeatureSelectionGA.py
 jobBatchName = “Feature6Layers”
 
 # -----------------------------------
@@ -23,12 +23,11 @@ error  = FS.error
 # What to do with files.
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
-transfer_input_files = TestDataset.csv, TrainDataset.csv
+transfer_input_files = MultiOmicsTest.csv, MultiOmicsTrain.csv
 transfer_output_files = FinalTrainDataset.csv, FinalTestDataset.csv, BestFitnesses.png
 # -----------------------------------
 # Requirements for the Job
 requirements = (CUDACapability > 2) &&\
-  (CUDACapability > 2.0) &&\
   regexp("heron",machine)
 # -----------------------------------
 # Resource requirements

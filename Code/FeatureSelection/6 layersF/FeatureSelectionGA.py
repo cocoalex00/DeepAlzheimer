@@ -33,8 +33,8 @@ else:
 #IMPORTING DATASETS
 
 #Import Train and Test datasets
-Train = pd.read_csv(r'TrainDataset.csv') 
-Test = pd.read_csv(r'TestDataset.csv') 
+Train = pd.read_csv(r'MultiOmicsTrain.csv') 
+Test = pd.read_csv(r'MultiOmicsTest.csv') 
 
 #Delete first column as it is unnecessary 
 Train.drop(Train.columns[0],axis = 1, inplace = True)
@@ -59,8 +59,9 @@ y_train = torch.as_tensor(y_train, dtype = torch.float32, device = device)
 y_test = torch.as_tensor(y_test, dtype = torch.float32, device = device)
 
 
-
-
+# Drop the columns that contrain the labels from the train and test dataset
+Train.drop(Train.columns[700:],axis = 1, inplace = True)
+Test.drop(Test.columns[700:],axis = 1, inplace = True)
 
 #-----------------------------------------------------------------------
 #CREATING THE NETWORK CLASS 
