@@ -1,6 +1,6 @@
 #!usr/bin/python3
 
-# This code will fit a logistic regresion model on the three datasets in order to compare its performance with the proposed models
+# This code will fit a K nearest neighbors classifier on the 4 datasets in order to compare its performance with the proposed models.
 
 from sklearn.metrics import accuracy_score , roc_auc_score
 import numpy as np 
@@ -52,7 +52,7 @@ TestSecondRun.drop(TestSecondRun.columns[0], axis = 1, inplace = True)
 TrainThirdRun.drop(TrainThirdRun.columns[0], axis = 1, inplace = True)
 TestThirdRun.drop(TestThirdRun.columns[0], axis = 1, inplace = True)
 
-# Convert the datasets to tensors
+# Convert the datasets to numpy arrays
 TrainFirstRun = TrainFirstRun.to_numpy()
 TestFirstRun = TestFirstRun.to_numpy()
 
@@ -82,7 +82,7 @@ MultiOmicsTrain.drop(MultiOmicsTrain.columns[700:], axis = 1, inplace = True)
 MultiOmicsTest.drop(MultiOmicsTest.columns[700:], axis = 1, inplace = True)
 
 
-# Convert the full multi omics dataset to tensors for training and testing
+# Convert the full multi omics dataset to numpy arrays for training and testing
 MultiOmicsTrain = MultiOmicsTrain.to_numpy()
 MultiOmicsTest = MultiOmicsTest.to_numpy()
 print('-'*30)

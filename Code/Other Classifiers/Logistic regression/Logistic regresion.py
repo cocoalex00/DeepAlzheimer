@@ -52,7 +52,7 @@ TestSecondRun.drop(TestSecondRun.columns[0], axis = 1, inplace = True)
 TrainThirdRun.drop(TrainThirdRun.columns[0], axis = 1, inplace = True)
 TestThirdRun.drop(TestThirdRun.columns[0], axis = 1, inplace = True)
 
-# Convert the datasets to tensors
+# Convert the datasets to numpy arrays
 TrainFirstRun = TrainFirstRun.to_numpy()
 TestFirstRun = TestFirstRun.to_numpy()
 
@@ -82,7 +82,7 @@ MultiOmicsTrain.drop(MultiOmicsTrain.columns[700:], axis = 1, inplace = True)
 MultiOmicsTest.drop(MultiOmicsTest.columns[700:], axis = 1, inplace = True)
 
 
-# Convert the full multi omics dataset to tensors for training and testing
+# Convert the full multi omics dataset to numpy arrays for training and testing
 MultiOmicsTrain = MultiOmicsTrain.to_numpy()
 MultiOmicsTest = MultiOmicsTest.to_numpy()
 print('-'*30)
@@ -92,7 +92,7 @@ print("Datasets processed and converted to tensors")
 def main():
   
 
-  # Initialise all classifiers
+  # Initialise all classifiers and fit them to the training data 
     
   clf1 = LogisticRegression().fit(TrainFirstRun,y_train)
   clf2 = LogisticRegression().fit(TrainSecondRun,y_train)
