@@ -1,6 +1,6 @@
 # DeepAlzheimer
 
-Alzheimer's disease prediction using deep learning and a multi-omics dataset.
+Alzheimer’s disease prediction based on multi-omics data: A deep learning approach.
 
 ### Description
 
